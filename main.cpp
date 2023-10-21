@@ -30,6 +30,7 @@ bool CreateAutostereogram(
 	{
 		const unsigned char* srcDepthPixel = &srcDepth[iy * srcDepthWidth * srcDepthChannels];
 		unsigned char* outPixel = &outPixels[iy * srcDepthWidth * srcColorChannels];
+		unsigned char* outPixelRow = outPixel;
 
 		int srcColorY = iy % srcColorHeight;
 
@@ -37,9 +38,18 @@ bool CreateAutostereogram(
 		{
 			int depthOffset = int((float(*srcDepthPixel) / 255.0f) * float(maxDepthOffset));
 
-			int srcColorX = (ix + srcColorWidth - depthOffset) % srcColorWidth;
+			const unsigned char* srcColorPixel = nullptr;
+			if ((ix + depthOffset - srcColorWidth) < srcColorWidth)
+			{
+				int srcColorX = (ix + depthOffset) % srcColorWidth;
+				srcColorPixel = &srcColor[srcColorY * srcColorWidth * srcColorChannels + srcColorX * srcColorChannels];
+			}
+			else
+			{
+				int srcColorX = (ix + depthOffset - srcColorWidth);
+				srcColorPixel = &outPixelRow[srcColorX * srcColorChannels];
+			}
 
-			const unsigned char* srcColorPixel = &srcColor[srcColorY * srcColorWidth * srcColorChannels + srcColorX * srcColorChannels];
 			memcpy(outPixel, srcColorPixel, srcColorChannels);
 
 			// for debugging the depth map
@@ -58,6 +68,7 @@ bool CreateAutostereogram(
 	const char* srcColorFileName,
 	const char* srcDepthFileName,
 	bool invertDepth,
+	bool normalizeDepth,
 	int padXMultiplier,
 	int padYMultiplier,
 	int maxDepthOffset,
@@ -76,6 +87,22 @@ bool CreateAutostereogram(
 	{
 		for (size_t i = 0; i < srcDepthW * srcDepthH * srcDepthC; ++i)
 			srcDepth[i] = 255 - srcDepth[i];
+	}
+
+	if (normalizeDepth)
+	{
+		unsigned char min = srcDepth[0];
+		unsigned char max = srcDepth[0];
+		for (size_t i = 0; i < srcDepthW * srcDepthH * srcDepthC; ++i)
+		{
+			min = std::min(min, srcDepth[i]);
+			max = std::max(max, srcDepth[i]);
+		}
+		for (size_t i = 0; i < srcDepthW * srcDepthH * srcDepthC; ++i)
+		{
+			float percent = float(srcDepth[i] - min) / float(max - min);
+			srcDepth[i] = (unsigned char)(percent * 255.0f);
+		}
 	}
 
 	// Make depth be 2x in size and put the original in the middle, if we should
@@ -158,17 +185,18 @@ int main(int argc, char** argv)
 		const char* filename;
 		const char* shortName;
 		bool reverseDepth;
+		bool normalizeDepth;
 		int padX;
 		int padY;
 	};
 
 	const DepthTexture depthImages[] =
 	{
-		{ "Assets/bw_witch.jpg", "witch", true, 2, 2 },
-		{ "Assets/bw_house.jpg", "house", true, 4, 2 },
-		{ "Assets/grey_grave.jpg", "grave", false, 2, 2 },
-		{ "Assets/grey_portrait.jpg", "portrait", false, 4, 2 },
-		{ "Assets/grey_squares.png", "squares", false, 2, 2 },
+		{ "Assets/bw_witch.jpg", "witch", true, false, 2, 2 },
+		{ "Assets/bw_house.jpg", "house", true, false, 2, 2 },
+		{ "Assets/grey_grave.jpg", "grave", false, true, 2, 2 },
+		{ "Assets/grey_portrait.jpg", "portrait", false, true, 2, 2 },
+		{ "Assets/grey_squares.png", "squares", false, true, 1, 1 },
 	};
 
 	for (const Texture& colorTexture : colorPatterns)
@@ -177,7 +205,7 @@ int main(int argc, char** argv)
 		{
 			std::string outFilename = std::string("out/") + depthTexture.shortName + "_" + colorTexture.shortName + ".png";
 
-			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.padX, depthTexture.padY, c_defaultMaxDepthOffset, outFilename.c_str());
+			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.normalizeDepth, depthTexture.padX, depthTexture.padY, c_defaultMaxDepthOffset, outFilename.c_str());
 		}
 	}
 
