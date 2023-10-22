@@ -238,11 +238,3 @@ int main(int argc, char** argv)
 
 	return 0;
 }
-
-/*
-Notes:
-* the helper dots are the size of the color tile texture. Making that color texture big makes it real hard to see things!
-* it shifts the image to the left, so i had to add an extra tile to the left to recenter it.
-* blue noise doesn't work well, but it shows how the pattern "ripples" over space, which is pretty neat.
-* hard to make out fine details
-*/
