@@ -13,7 +13,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
-static const int c_defaultMaxDepthOffset = 20;
+static const int c_maxDepthOffset = 20;
+static const bool c_drawHelperDots = true;
 
 bool CreateAutostereogram(
 	const unsigned char* srcColor, int srcColorWidth, int srcColorHeight, int srcColorChannels,
@@ -61,6 +62,32 @@ bool CreateAutostereogram(
 		}
 	}
 
+	// draw the two dots to overlap
+	if (c_drawHelperDots)
+	{
+		int dotsDistance = srcColorWidth;
+
+		int dot1x = srcDepthWidth / 2 - dotsDistance / 2;
+		int dotsy = 40;
+		int dot2x = srcDepthWidth / 2 + dotsDistance / 2;
+
+		for (int iy = -10; iy <= 10; ++iy)
+		{
+			unsigned char* dest = &outPixels[(iy + dotsy) * srcDepthWidth * srcColorChannels];
+			for (int ix = -10; ix <= 10; ++ix)
+			{
+				if ((iy * iy + ix * ix) < 100)
+				{
+					for (int i = 0; i < srcColorChannels; ++i)
+					{
+						dest[(ix + dot1x) * srcColorChannels + i] = 128;
+						dest[(ix + dot2x) * srcColorChannels + i] = 255;
+					}
+				}
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -69,6 +96,7 @@ bool CreateAutostereogram(
 	const char* srcDepthFileName,
 	bool invertDepth,
 	bool normalizeDepth,
+	bool binarizeDepth,
 	int padXMultiplier,
 	int padYMultiplier,
 	int maxDepthOffset,
@@ -105,6 +133,12 @@ bool CreateAutostereogram(
 		}
 	}
 
+	if (binarizeDepth)
+	{
+		for (size_t i = 0; i < srcDepthW * srcDepthH * srcDepthC; ++i)
+			srcDepth[i] = srcDepth[i] < 128 ? 0 : 255;
+	}
+
 	// Make depth be 2x in size and put the original in the middle, if we should
 	std::vector<unsigned char> paddedDepth;
 	if (padXMultiplier > 1 || padYMultiplier > 1)
@@ -122,9 +156,6 @@ bool CreateAutostereogram(
 		srcDepthH *= padYMultiplier;
 		srcDepth = paddedDepth.data();
 	}
-
-	// TODO: testing
-	//maxDepthOffset = srcColorW;
 
 	std::vector<unsigned char> outPixels;
 	bool ret = CreateAutostereogram(srcColor, srcColorW, srcColorH, srcColorC, srcDepth, srcDepthW, srcDepthH, srcDepthC, maxDepthOffset, outPixels);
@@ -186,17 +217,18 @@ int main(int argc, char** argv)
 		const char* shortName;
 		bool reverseDepth;
 		bool normalizeDepth;
+		bool binarize;
 		int padX;
 		int padY;
 	};
 
 	const DepthTexture depthImages[] =
 	{
-		{ "Assets/bw_witch.jpg", "witch", true, false, 2, 2 },
-		{ "Assets/bw_house.jpg", "house", true, false, 2, 2 },
-		{ "Assets/grey_grave.jpg", "grave", false, true, 2, 2 },
-		{ "Assets/grey_portrait.jpg", "portrait", false, true, 2, 2 },
-		{ "Assets/grey_squares.png", "squares", false, true, 1, 1 },
+		{ "Assets/bw_witch.jpg", "witch", true, false, true, 2, 2 },
+		{ "Assets/bw_house.jpg", "house", true, false, true, 2, 2 },
+		{ "Assets/grey_grave.jpg", "grave", false, true, false, 2, 2 },
+		{ "Assets/grey_portrait.jpg", "portrait", false, true, false, 2, 2 },
+		{ "Assets/grey_squares.png", "squares", false, true, false, 1, 1 },
 	};
 
 	for (const Texture& colorTexture : colorPatterns)
@@ -205,22 +237,9 @@ int main(int argc, char** argv)
 		{
 			std::string outFilename = std::string("out/") + depthTexture.shortName + "_" + colorTexture.shortName + ".png";
 
-			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.normalizeDepth, depthTexture.padX, depthTexture.padY, c_defaultMaxDepthOffset, outFilename.c_str());
+			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.normalizeDepth, depthTexture.binarize, depthTexture.padX, depthTexture.padY, c_maxDepthOffset, outFilename.c_str());
 		}
 	}
 
 	return 0;
 }
-
-/*
-TODO:
-- try with a blue noise point set src image
-- try with a blue noise texture src image
-- also white noise?
-
-- halloween themed
-- black and white depth maps
-- greyscale depth maps
-- halloween themed src image? like candy?
-
-*/
