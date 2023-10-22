@@ -68,7 +68,7 @@ bool CreateAutostereogram(
 		int dotsDistance = srcColorWidth;
 
 		int dot1x = srcDepthWidth / 2 - dotsDistance / 2;
-		int dotsy = 40;
+		int dotsy = 15;
 		int dot2x = srcDepthWidth / 2 + dotsDistance / 2;
 
 		for (int iy = -10; iy <= 10; ++iy)
@@ -97,8 +97,6 @@ bool CreateAutostereogram(
 	bool invertDepth,
 	bool normalizeDepth,
 	bool binarizeDepth,
-	int padXMultiplier,
-	int padYMultiplier,
 	int maxDepthOffset,
 	const char* outFileName)
 {
@@ -139,21 +137,19 @@ bool CreateAutostereogram(
 			srcDepth[i] = srcDepth[i] < 128 ? 0 : 255;
 	}
 
-	// Make depth be 2x in size and put the original in the middle, if we should
+	// Re-center the image by padding it on the left side
 	std::vector<unsigned char> paddedDepth;
-	if (padXMultiplier > 1 || padYMultiplier > 1)
 	{
-		paddedDepth.resize(srcDepthW * srcDepthH * srcDepthC * padXMultiplier * padYMultiplier, 0);
-		size_t ixOffset = (srcDepthW * padXMultiplier - srcDepthW)/ 2;
-		size_t iyOffset = (srcDepthH * padYMultiplier - srcDepthH)/ 2;
+		int newSrcDepthW = srcDepthW + srcColorW;
+		paddedDepth.resize(newSrcDepthW * srcDepthH * srcDepthC, 0);
+		size_t ixOffset = srcColorW;
 		for (size_t iy = 0; iy < srcDepthH; ++iy)
 		{
 			const unsigned char* src = &srcDepth[iy * srcDepthW * srcDepthC];
-			unsigned char* dest = &paddedDepth[(iy + iyOffset) * srcDepthW * padXMultiplier * srcDepthC + ixOffset * srcDepthC];
+			unsigned char* dest = &paddedDepth[iy * newSrcDepthW * srcDepthC + ixOffset * srcDepthC];
 			memcpy(dest, src, srcDepthW * srcDepthC);
 		}
-		srcDepthW *= padXMultiplier;
-		srcDepthH *= padYMultiplier;
+		srcDepthW = newSrcDepthW;
 		srcDepth = paddedDepth.data();
 	}
 
@@ -218,17 +214,16 @@ int main(int argc, char** argv)
 		bool reverseDepth;
 		bool normalizeDepth;
 		bool binarize;
-		int padX;
-		int padY;
 	};
 
 	const DepthTexture depthImages[] =
 	{
-		{ "Assets/bw_witch.jpg", "witch", true, false, true, 2, 2 },
-		{ "Assets/bw_house.jpg", "house", true, false, true, 2, 2 },
-		{ "Assets/grey_grave.jpg", "grave", false, true, false, 2, 2 },
-		{ "Assets/grey_portrait.jpg", "portrait", false, true, false, 2, 1 },
-		{ "Assets/grey_squares.png", "squares", false, true, false, 1, 1 },
+		{ "Assets/bw_witch.jpg", "witch", true, false, true },
+		{ "Assets/bw_house.jpg", "house", true, false, true },
+		{ "Assets/grey_grave.jpg", "grave", false, true, false },
+		{ "Assets/grey_yoda.jpg", "yoda", false, true, false },
+		{ "Assets/grey_art.jpg", "art", false, true, false },
+		{ "Assets/grey_squares.png", "squares", false, true, false },
 	};
 
 	for (const Texture& colorTexture : colorPatterns)
@@ -237,9 +232,17 @@ int main(int argc, char** argv)
 		{
 			std::string outFilename = std::string("out/") + depthTexture.shortName + "_" + colorTexture.shortName + ".png";
 
-			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.normalizeDepth, depthTexture.binarize, depthTexture.padX, depthTexture.padY, c_maxDepthOffset, outFilename.c_str());
+			CreateAutostereogram(colorTexture.filename, depthTexture.filename, depthTexture.reverseDepth, depthTexture.normalizeDepth, depthTexture.binarize, c_maxDepthOffset, outFilename.c_str());
 		}
 	}
 
 	return 0;
 }
+
+/*
+Notes:
+* the helper dots are the size of the color tile texture. Making that color texture big makes it real hard to see things!
+* it shifts the image to the left, so i had to add an extra tile to the left to recenter it.
+* blue noise doesn't work well, but it shows how the pattern "ripples" over space, which is pretty neat.
+* hard to make out fine details
+*/
