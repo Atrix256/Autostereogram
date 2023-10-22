@@ -80,7 +80,7 @@ bool CreateAutostereogram(
 				{
 					for (int i = 0; i < srcColorChannels; ++i)
 					{
-						dest[(ix + dot1x) * srcColorChannels + i] = 128;
+						dest[(ix + dot1x) * srcColorChannels + i] = 192;
 						dest[(ix + dot2x) * srcColorChannels + i] = 255;
 					}
 				}
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
 		{ "Assets/bw_witch.jpg", "witch", true, false, true, 2, 2 },
 		{ "Assets/bw_house.jpg", "house", true, false, true, 2, 2 },
 		{ "Assets/grey_grave.jpg", "grave", false, true, false, 2, 2 },
-		{ "Assets/grey_portrait.jpg", "portrait", false, true, false, 2, 2 },
+		{ "Assets/grey_portrait.jpg", "portrait", false, true, false, 2, 1 },
 		{ "Assets/grey_squares.png", "squares", false, true, false, 1, 1 },
 	};
 
